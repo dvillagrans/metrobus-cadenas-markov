@@ -36,15 +36,15 @@ class MetrobusMarkovAnalyzer:
         self.trips_df = None
         self.transition_matrix = None
         self.states = None
-      @st.cache_data
-    def load_data(_self):
+    
+    def load_data(self):
         """Carga los datos GTFS del Metrobús"""
         try:
             # Usar rutas relativas desde el directorio actual
-            stops_file = _self.data_path / "stops.txt"
-            routes_file = _self.data_path / "routes.txt"
-            stop_times_file = _self.data_path / "stop_times.txt"
-            trips_file = _self.data_path / "trips.txt"
+            stops_file = self.data_path / "stops.txt"
+            routes_file = self.data_path / "routes.txt"
+            stop_times_file = self.data_path / "stop_times.txt"
+            trips_file = self.data_path / "trips.txt"
             
             # Verificar que los archivos existan
             missing_files = []
@@ -56,24 +56,38 @@ class MetrobusMarkovAnalyzer:
             if missing_files:
                 st.error(f"❌ Archivos no encontrados: {', '.join(missing_files)}")
                 st.error(f"📁 Directorio actual: {Path.cwd()}")
-                st.error(f"🔍 Buscando en: {_self.data_path.absolute()}")
+                st.error(f"🔍 Buscando en: {self.data_path.absolute()}")
                 return False
             
-            _self.stops_df = pd.read_csv(stops_file)
-            _self.routes_df = pd.read_csv(routes_file)
-            _self.stop_times_df = pd.read_csv(stop_times_file)
-            _self.trips_df = pd.read_csv(trips_file)
+            self.stops_df = pd.read_csv(stops_file)
+            self.routes_df = pd.read_csv(routes_file)
+            self.stop_times_df = pd.read_csv(stop_times_file)
+            self.trips_df = pd.read_csv(trips_file)
             
-            st.success(f"✅ Datos cargados: {len(_self.stops_df)} estaciones, {len(_self.routes_df)} rutas")
+            st.success(f"✅ Datos cargados: {len(self.stops_df)} estaciones, {len(self.routes_df)} rutas")
             return True
         except Exception as e:
             st.error(f"Error cargando datos: {e}")
             st.error(f"Directorio actual: {Path.cwd()}")
-            st.error(f"Buscando en: {_self.data_path}")
+            st.error(f"Buscando en: {self.data_path}")            # Asegurar que las variables queden en None si hay error
+            self.stops_df = None
+            self.routes_df = None
+            self.stop_times_df = None
+            self.trips_df = None
             return False
+    
+    def is_data_loaded(self):
+        """Verifica si los datos han sido cargados correctamente"""
+        return (self.stops_df is not None and 
+                self.routes_df is not None and 
+                self.stop_times_df is not None and 
+                self.trips_df is not None)
     
     def preprocess_data(self):
         """Preprocesa los datos para análisis de Markov"""
+        if not self.is_data_loaded():
+            raise ValueError("Los datos no han sido cargados. Llama a load_data() primero.")
+        
         # Unir datos para obtener secuencias de paradas por viaje
         trip_sequences = []
         
@@ -128,7 +142,7 @@ class MetrobusMarkovAnalyzer:
     
     def simulate_markov_chain(self, start_state: str, n_steps: int = 10) -> List[str]:
         """Simula una cadena de Markov desde un estado inicial"""
-        if self.transition_matrix is None:
+        if self.transition_matrix is None or self.states is None:
             return []
         
         try:
@@ -269,14 +283,14 @@ def main():
     """Función principal de la aplicación"""
     st.title("🚌 Análisis de Cadenas de Markov - Metrobús CDMX")
     st.markdown("### Análisis de patrones de transición entre estaciones")
+      # Inicializar analizador
+    if 'analyzer' not in st.session_state:
+        st.session_state.analyzer = MetrobusMarkovAnalyzer()
     
-    # Inicializar analizador
-    analyzer = MetrobusMarkovAnalyzer()
-    
-    # Sidebar para configuración
+    analyzer = st.session_state.analyzer
+      # Sidebar para configuración
     st.sidebar.header("⚙️ Configuración")
-    
-    # Cargar datos
+      # Cargar datos
     if st.sidebar.button("🔄 Cargar Datos"):
         with st.spinner("Cargando datos del Metrobús..."):
             if analyzer.load_data():
@@ -286,25 +300,39 @@ def main():
                 st.sidebar.error("❌ Error al cargar datos")
                 st.session_state.data_loaded = False
     
-    # Verificar si los datos están cargados
+    # No necesitamos recuperar analyzer de session_state ya que lo tenemos
+      # Verificar si los datos están cargados
     if not hasattr(st.session_state, 'data_loaded') or not st.session_state.data_loaded:
         st.info("👆 Haz clic en 'Cargar Datos' en la barra lateral para comenzar")
+        return
+      # Verificar que el analyzer tenga los datos cargados
+    if not analyzer.is_data_loaded():
+        st.error("❌ Error: Los datos no están disponibles en el analizador. Intenta cargar de nuevo.")
+        st.session_state.data_loaded = False
         return
     
     # Procesar datos y estimar matriz
     if st.sidebar.button("🧮 Calcular Matriz de Transición"):
         with st.spinner("Procesando secuencias de viajes..."):
-            sequences = analyzer.preprocess_data()
-            st.sidebar.info(f"📊 Se procesaron {len(sequences)} secuencias de viajes")
+            try:
+                sequences = analyzer.preprocess_data()
+                st.sidebar.info(f"📊 Se procesaron {len(sequences)} secuencias de viajes")
+            except ValueError as e:
+                st.error(f"❌ Error al procesar datos: {e}")
+                return
             
         with st.spinner("Estimando matriz de transición..."):
             analyzer.estimate_transition_matrix(sequences)
             st.sidebar.success("✅ Matriz calculada")
             st.session_state.matrix_calculated = True
-    
-    # Verificar si la matriz está calculada
+      # Verificar si la matriz está calculada
     if not hasattr(st.session_state, 'matrix_calculated') or not st.session_state.matrix_calculated:
         st.info("👆 Haz clic en 'Calcular Matriz de Transición' para continuar")
+        return
+    
+    # Verificar que los datos estén disponibles
+    if analyzer.states is None or analyzer.transition_matrix is None:
+        st.error("❌ Error: Los datos no están disponibles. Intenta cargar y calcular de nuevo.")
         return
     
     # Mostrar estadísticas básicas
