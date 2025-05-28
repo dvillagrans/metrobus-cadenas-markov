@@ -1,0 +1,2 @@
+feed_publisher_name,feed_publisher_url,feed_lang,default_lang,feed_start_date,feed_end_date,feed_version,feed_contact_email,feed_contact_url
+Metrobus,https://www.metrobus.cdmx.gob.mx/,es,,20250101,20251231,1,,https://www.metrobus.cdmx.gob.mx/
