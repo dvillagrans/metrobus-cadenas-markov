@@ -210,3 +210,33 @@ Este proyecto es educativo y puede ser extendido para:
 - Optimización de rutas
 
 ¡Las contribuciones y mejoras son bienvenidas! 🎉
+
+## 🌐 Deployment en Streamlit Community Cloud
+
+### 📋 Prerequisitos
+1. Cuenta de GitHub (gratuita)
+2. Cuenta de Streamlit Cloud (gratuita)
+
+### 🚀 Pasos para Deployment
+
+1. **Subir a GitHub:**
+   ```bash
+   git add .
+   git commit -m "Initial commit - Metrobus Markov Analysis App"
+   git branch -M main
+   git remote add origin https://github.com/tu-usuario/metrobus-markov-analysis.git
+   git push -u origin main
+   ```
+
+2. **Deployment en Streamlit Cloud:**
+   - Ve a [share.streamlit.io](https://share.streamlit.io)
+   - Conecta tu cuenta de GitHub
+   - Selecciona tu repositorio: `metrobus-markov-analysis`
+   - Archivo principal: `metrobus_markov_app.py`
+   - ¡Deploy automático!
+
+3. **URL de la App:**
+   Tu app estará disponible en: `https://tu-usuario-metrobus-markov-analysis.streamlit.app`
+
+### ⚡ Actualizaciones
+Cada push a la rama `main` actualizará automáticamente tu app en vivo.
