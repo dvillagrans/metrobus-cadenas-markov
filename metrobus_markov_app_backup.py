@@ -63,13 +63,13 @@ class MetrobusMarkovAnalyzer:
             self.routes_df = pd.read_csv(routes_file)
             self.stop_times_df = pd.read_csv(stop_times_file)
             self.trips_df = pd.read_csv(trips_file)
-            
-            st.success(f"✅ Datos cargados: {len(self.stops_df)} estaciones, {len(self.routes_df)} rutas")
+              st.success(f"✅ Datos cargados: {len(self.stops_df)} estaciones, {len(self.routes_df)} rutas")
             return True
         except Exception as e:
             st.error(f"Error cargando datos: {e}")
             st.error(f"Directorio actual: {Path.cwd()}")
-            st.error(f"Buscando en: {self.data_path}")            # Asegurar que las variables queden en None si hay error
+            st.error(f"Buscando en: {self.data_path}")
+            # Asegurar que las variables queden en None si hay error
             self.stops_df = None
             self.routes_df = None
             self.stop_times_df = None
@@ -83,29 +83,33 @@ class MetrobusMarkovAnalyzer:
                 self.stop_times_df is not None and 
                 self.trips_df is not None)
     
-    def preprocess_data(self, sample_size=None):
+    def preprocess_data(self, limit_trips=None):
         """Preprocesa los datos para análisis de Markov"""
         if not self.is_data_loaded():
-            raise ValueError("Los datos no han sido cargados. Llama a load_data() primero.")        
+            raise ValueError("Los datos no han sido cargados. Llama a load_data() primero.")
+        
         # Unir datos para obtener secuencias de paradas por viaje
         trip_sequences = []
-          # Agrupar por trip_id y ordenar por stop_sequence
+        
+        # Obtener todos los trip_ids únicos
         unique_trips = self.stop_times_df['trip_id'].unique()
         
-        if sample_size is not None:
-            unique_trips = unique_trips[:sample_size]
-            st.info(f"🔄 Procesando {len(unique_trips):,} viajes de {len(self.stop_times_df['trip_id'].unique()):,} totales...")
+        # Si se especifica un límite, usarlo; si no, procesar todos
+        if limit_trips is not None:
+            unique_trips = unique_trips[:limit_trips]
+            st.info(f"🔄 Procesando {len(unique_trips)} viajes de {len(self.stop_times_df['trip_id'].unique())} totales...")
         else:
-            st.info(f"🔄 Procesando TODOS los {len(unique_trips):,} viajes disponibles...")
-            
-        total_trips = len(unique_trips)
+            st.info(f"🔄 Procesando TODOS los {len(unique_trips)} viajes disponibles...")
+        
+        # Optimización: usar groupby para procesar más eficientemente
         progress_bar = st.progress(0)
+        total_trips = len(unique_trips)
         
         for i, trip_id in enumerate(unique_trips):
             # Actualizar barra de progreso cada 1000 viajes
             if i % 1000 == 0:
                 progress_bar.progress(i / total_trips)
-                
+            
             trip_stops = self.stop_times_df[
                 self.stop_times_df['trip_id'] == trip_id
             ].sort_values('stop_sequence')
@@ -115,7 +119,7 @@ class MetrobusMarkovAnalyzer:
                 trip_sequences.append(stop_sequence)
         
         progress_bar.progress(1.0)
-        st.success(f"✅ Procesados {len(trip_sequences):,} viajes válidos de {total_trips:,} totales")
+        st.success(f"✅ Procesados {len(trip_sequences)} viajes válidos")
         
         return trip_sequences
     
@@ -326,34 +330,12 @@ def main():
         st.error("❌ Error: Los datos no están disponibles en el analizador. Intenta cargar de nuevo.")
         st.session_state.data_loaded = False
         return
-      # Opciones de procesamiento
-    st.sidebar.subheader("⚙️ Configuración de Análisis")
-    
-    # Opción para elegir cuántos viajes procesar
-    processing_mode = st.sidebar.radio(
-        "Modo de procesamiento:",
-        ["🚀 Todos los viajes (completo)", "⚡ Muestra rápida (1000 viajes)", "🔧 Personalizado"]
-    )
-    
-    sample_size = None
-    if processing_mode == "⚡ Muestra rápida (1000 viajes)":
-        sample_size = 1000
-    elif processing_mode == "🔧 Personalizado":
-        total_trips = len(analyzer.stop_times_df['trip_id'].unique()) if analyzer.is_data_loaded() else 34180
-        sample_size = st.sidebar.slider(
-            "Número de viajes a procesar:",
-            min_value=100,
-            max_value=total_trips,
-            value=min(5000, total_trips),
-            step=500
-        )
-        st.sidebar.info(f"📊 Total disponible: {total_trips:,} viajes")
     
     # Procesar datos y estimar matriz
     if st.sidebar.button("🧮 Calcular Matriz de Transición"):
         with st.spinner("Procesando secuencias de viajes..."):
             try:
-                sequences = analyzer.preprocess_data(sample_size)
+                sequences = analyzer.preprocess_data()
                 st.sidebar.info(f"📊 Se procesaron {len(sequences)} secuencias de viajes")
             except ValueError as e:
                 st.error(f"❌ Error al procesar datos: {e}")
